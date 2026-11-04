@@ -2,37 +2,37 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
-  Switch,
   StyleSheet,
-  ScrollView,
   Alert,
-  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types';
+import { SettingsScreenProps } from '../types/navigation';
+import { getCurrentUser, logout } from '../services/authService';
+import { Avatar } from '../components/Avatar';
 
-export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  // Switch states as requested in requirements
-  const [receiveNoti, setReceiveNoti] = useState(true);
-  const [onlineStatus, setOnlineStatus] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+export const SettingsScreen: React.FC<SettingsScreenProps> = () => {
+  const [loggingOut, setLoggingOut] = useState(false);
+  const user = getCurrentUser();
 
   const handleLogout = () => {
     Alert.alert(
-      'Đăng xuất',
+      'Xác nhận đăng xuất',
       'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?',
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Đăng xuất',
           style: 'destructive',
-          onPress: () => {
-            navigation.replace('Login');
+          onPress: async () => {
+            setLoggingOut(true);
+            try {
+              await logout();
+              // Sau khi logout, RootNavigator onAuthStateChanged sẽ tự chuyển về AuthStack
+            } catch (error) {
+              Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+              setLoggingOut(false);
+            }
           },
         },
       ]
@@ -40,206 +40,169 @@ export const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header */}
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Cài đặt</Text>
+        <Text style={styles.headerTitle}>Cài Đặt</Text>
       </View>
 
-      {/* Thông tin tài khoản người dùng */}
       <View style={styles.profileCard}>
-        <Image
-          source={{
-            uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-          }}
-          style={styles.avatar}
-        />
-        <View style={styles.profileDetails}>
-          <Text style={styles.profileName}>Nguyễn Quốc Anh</Text>
-          <Text style={styles.profileEmail}>quocanh.dev@gmail.com</Text>
-          <Text style={styles.profilePhone}>SĐT: 0988 123 456</Text>
+        <Avatar name={user?.displayName || 'Người dùng'} size={68} />
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName}>
+            {user?.displayName || 'Chưa đặt tên'}
+          </Text>
+          <Text style={styles.profileEmail}>{user?.email}</Text>
+          <View style={styles.onlineBadge}>
+            <View style={styles.greenDot} />
+            <Text style={styles.onlineText}>Đang hoạt động</Text>
+          </View>
         </View>
       </View>
 
-      {/* Tùy chọn ứng dụng với Switch */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tùy chọn chung</Text>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingTextContainer}>
-            <Text style={styles.settingLabel}>Nhận thông báo tin nhắn</Text>
-            <Text style={styles.settingDescription}>
-              Bật để nhận chuông và thông báo khi có tin nhắn mới
-            </Text>
-          </View>
-          <Switch
-            value={receiveNoti}
-            onValueChange={setReceiveNoti}
-            trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-            thumbColor={receiveNoti ? '#2563eb' : '#f8fafc'}
-          />
+        <Text style={styles.sectionTitle}>Thông tin ứng dụng</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Phiên bản</Text>
+          <Text style={styles.rowValue}>1.0.0 (Firebase Realtime)</Text>
         </View>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingTextContainer}>
-            <Text style={styles.settingLabel}>Hiển thị trạng thái online</Text>
-            <Text style={styles.settingDescription}>
-              Cho phép bạn bè thấy khi bạn đang hoạt động
-            </Text>
-          </View>
-          <Switch
-            value={onlineStatus}
-            onValueChange={setOnlineStatus}
-            trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-            thumbColor={onlineStatus ? '#16a34a' : '#f8fafc'}
-          />
-        </View>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingTextContainer}>
-            <Text style={styles.settingLabel}>Chế độ giao diện tối (Dark mode)</Text>
-            <Text style={styles.settingDescription}>
-              Giảm chói và bảo vệ mắt khi dùng ban đêm
-            </Text>
-          </View>
-          <Switch
-            value={darkMode}
-            onValueChange={setDarkMode}
-            trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-            thumbColor={darkMode ? '#2563eb' : '#f8fafc'}
-          />
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Chế độ chat</Text>
+          <Text style={styles.rowValue}>1 - 1 Realtime</Text>
         </View>
       </View>
 
-      {/* Phần nút Đăng xuất */}
       <View style={styles.logoutContainer}>
         <TouchableOpacity
-          style={styles.logoutButton}
-          activeOpacity={0.8}
+          style={[styles.logoutButton, loggingOut && styles.buttonDisabled]}
           onPress={handleLogout}
+          disabled={loggingOut}
+          activeOpacity={0.8}
         >
-          <Text style={styles.logoutButtonText}>Đăng xuất</Text>
+          {loggingOut ? (
+            <ActivityIndicator color="#EF4444" />
+          ) : (
+            <Text style={styles.logoutButtonText}>Đăng Xuất</Text>
+          )}
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: '#ffffff',
+    paddingBottom: 14,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#E2E8F0',
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
     marginTop: 16,
-    padding: 16,
+    marginHorizontal: 16,
     borderRadius: 16,
-    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: 16,
-    backgroundColor: '#e2e8f0',
-  },
-  profileDetails: {
+  profileInfo: {
+    marginLeft: 16,
     flex: 1,
   },
   profileName: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   profileEmail: {
     fontSize: 13,
-    color: '#64748b',
-    marginBottom: 2,
+    color: '#64748B',
+    marginTop: 2,
   },
-  profilePhone: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  section: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  settingItem: {
+  onlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    marginTop: 6,
   },
-  settingTextContainer: {
-    flex: 1,
-    marginRight: 12,
+  greenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginRight: 6,
   },
-  settingLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1e293b',
-    marginBottom: 2,
-  },
-  settingDescription: {
+  onlineText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    marginTop: 20,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F1F5F9',
+  },
+  rowLabel: {
+    fontSize: 15,
+    color: '#334155',
+  },
+  rowValue: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
   },
   logoutContainer: {
+    marginTop: 32,
     paddingHorizontal: 16,
-    marginVertical: 24,
   },
   logoutButton: {
-    backgroundColor: '#fee2e2',
-    borderWidth: 1,
-    borderColor: '#fca5a5',
+    backgroundColor: '#FEE2E2',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   logoutButtonText: {
-    color: '#dc2626',
+    color: '#DC2626',
     fontSize: 16,
     fontWeight: '700',
   },

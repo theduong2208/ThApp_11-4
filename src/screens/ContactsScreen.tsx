@@ -1,120 +1,120 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
-  FlatList,
-  Image,
   TextInput,
-  TouchableOpacity,
+  FlatList,
   StyleSheet,
-  StatusBar,
+  ActivityIndicator,
+  ListRenderItem,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Contact } from '../types';
-import { initialContacts } from '../data/mockData';
+import { ContactsScreenProps } from '../types/navigation';
+import { AppUser } from '../types/models';
+import { subscribeUsers } from '../services/userService';
+import { getCurrentUser } from '../services/authService';
+import { removeVietnameseTones } from '../utils/removeVietnameseTones';
+import { UserItem } from '../components/UserItem';
 
-export const ContactsScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+export const ContactsScreen: React.FC<ContactsScreenProps> = ({ navigation }) => {
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [contacts] = useState<Contact[]>(initialContacts);
+  const [loading, setLoading] = useState(true);
 
-  const filteredContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (contact.phone && contact.phone.includes(searchQuery))
-  );
+  const currentUser = getCurrentUser();
 
-  const handleOpenChat = (item: Contact) => {
-    navigation.navigate('ChatDetail', {
-      id: item.id,
-      name: item.name,
-      avatar: item.avatar,
-      isOnline: item.isOnline,
+  useEffect(() => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    // Lắng nghe danh bạ người dùng khác theo thời gian thực
+    const unsubscribe = subscribeUsers(currentUser.uid, (userList) => {
+      setUsers(userList);
+      setLoading(false);
     });
-  };
 
-  const renderContactItem = ({ item }: { item: Contact }) => (
-    <TouchableOpacity
-      style={styles.contactItem}
-      activeOpacity={0.7}
-      onPress={() => handleOpenChat(item)}
-    >
-      <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.avatar }} style={styles.avatar} />
-        <View
-          style={[
-            styles.statusIndicator,
-            item.isOnline ? styles.statusOnline : styles.statusOffline,
-          ]}
-        />
-      </View>
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser]);
 
-      <View style={styles.contactInfo}>
-        <Text style={styles.contactName} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text
-          style={[
-            styles.statusText,
-            item.isOnline ? styles.onlineText : styles.offlineText,
-          ]}
-        >
-          {item.isOnline ? 'Đang hoạt động' : 'Ngoại tuyến'}
-        </Text>
-      </View>
+  // Lọc danh bạ theo tên (không phân biệt hoa/thường, không dấu)
+  const filteredUsers = useMemo(() => {
+    const query = removeVietnameseTones(searchQuery);
+    if (!query) return users;
 
-      <TouchableOpacity
-        style={styles.chatButton}
-        onPress={() => handleOpenChat(item)}
-      >
-        <Text style={styles.chatButtonText}>Nhắn tin</Text>
-      </TouchableOpacity>
-    </TouchableOpacity>
+    return users.filter((u) => {
+      const normalizedName = removeVietnameseTones(u.name);
+      return normalizedName.includes(query);
+    });
+  }, [users, searchQuery]);
+
+  const renderItem: ListRenderItem<AppUser> = ({ item }) => (
+    <UserItem
+      user={item}
+      onPress={() =>
+        navigation.navigate('Chat', {
+          peerId: item.uid,
+          peerName: item.name,
+        })
+      }
+    />
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Danh bạ</Text>
-      </View>
+        <Text style={styles.headerTitle}>Danh Bạ</Text>
+        <Text style={styles.headerSubtitle}>
+          {users.length} người dùng trực tuyến/ngoại tuyến
+        </Text>
 
-      {/* Ô tìm kiếm danh bạ */}
-      <View style={styles.searchWrapper}>
-        <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
-            placeholderTextColor="#94a3b8"
+            placeholder="Tìm kiếm theo tên..."
+            placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Text style={styles.clearIcon}>✕</Text>
-            </TouchableOpacity>
+            <Text style={styles.clearBtn} onPress={() => setSearchQuery('')}>
+              ✕
+            </Text>
           )}
         </View>
       </View>
 
-      {/* Danh sách người dùng */}
-      <FlatList
-        data={filteredContacts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderContactItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyText}>Không tìm thấy liên hệ nào</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#0284C7" />
+          <Text style={styles.loadingText}>Đang tải danh bạ...</Text>
+        </View>
+      ) : (
+        <FlatList<AppUser>
+          data={filteredUsers}
+          keyExtractor={(item) => item.uid}
+          renderItem={renderItem}
+          contentContainerStyle={
+            filteredUsers.length === 0 ? styles.emptyList : styles.listContent
+          }
+          ListEmptyComponent={
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyIcon}>👥</Text>
+              <Text style={styles.emptyTitle}>
+                {searchQuery ? 'Không tìm thấy người dùng' : 'Chưa có người dùng nào'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery
+                  ? 'Hãy thử tìm kiếm với từ khóa khác.'
+                  : 'Hãy mời thêm bạn bè tạo tài khoản để trò chuyện!'}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };
@@ -122,30 +122,34 @@ export const ContactsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 10,
-    backgroundColor: '#ffffff',
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
   },
-  searchWrapper: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 12,
   },
-  searchContainer: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    height: 44,
+    height: 42,
   },
   searchIcon: {
     fontSize: 15,
@@ -153,91 +157,48 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    color: '#0f172a',
+    fontSize: 14,
+    color: '#0F172A',
     paddingVertical: 0,
   },
-  clearIcon: {
+  clearBtn: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#94A3B8',
     padding: 4,
   },
   listContent: {
-    paddingVertical: 4,
+    backgroundColor: '#FFFFFF',
   },
-  contactItem: {
-    flexDirection: 'row',
+  emptyList: {
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 14,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#e2e8f0',
-  },
-  statusIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  statusOnline: {
-    backgroundColor: '#22c55e',
-  },
-  statusOffline: {
-    backgroundColor: '#94a3b8',
-  },
-  contactInfo: {
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
-  },
-  contactName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 2,
-  },
-  statusText: {
-    fontSize: 13,
-  },
-  onlineText: {
-    color: '#16a34a',
-  },
-  offlineText: {
-    color: '#94a3b8',
-  },
-  chatButton: {
-    backgroundColor: '#eff6ff',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  chatButtonText: {
-    fontSize: 13,
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 52,
     marginBottom: 12,
   },
-  emptyText: {
-    fontSize: 15,
-    color: '#94a3b8',
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

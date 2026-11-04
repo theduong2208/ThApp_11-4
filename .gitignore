@@ -1,75 +1,103 @@
-# OSX
-#
-.DS_Store
-
-# Xcode
-#
-build/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
-*.hmap
-*.ipa
-*.xcuserstate
-**/.xcode.env.local
-
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
-local.properties
-*.iml
-*.hprof
-.cxx/
-*.keystore
-!debug.keystore
-.kotlin/
-
-# node.js
-#
+# --------------------------------------------------
+# 1. Node.js & Dependencies
+# --------------------------------------------------
 node_modules/
-npm-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json.bak
 
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
-# screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/
-
-**/fastlane/report.xml
-**/fastlane/Preview.html
-**/fastlane/screenshots
-**/fastlane/test_output
-
-# Bundle artifact
-*.jsbundle
-
-# Ruby / CocoaPods
-**/Pods/
-/vendor/bundle/
-
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
-
-# testing
-/coverage
-
-# Yarn
+# Yarn v2+
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# --------------------------------------------------
+# 2. Android Build & Temporary Files
+# --------------------------------------------------
+android/build/
+android/app/build/
+android/.gradle/
+android/.cxx/
+android/app/.cxx/
+android/local.properties
+android/*.iml
+android/app/*.iml
+*.apk
+*.aab
+*.ap_
+*.hprof
+*.keystore
+!debug.keystore
+
+# --------------------------------------------------
+# 3. iOS Build & CocoaPods
+# --------------------------------------------------
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/*.moved-aside
+ios/*.hmap
+ios/*.ipa
+ios/*.xcuserstate
+ios/**/.xcode.env.local
+build/
+DerivedData/
+
+# --------------------------------------------------
+# 4. React Native & Metro
+# --------------------------------------------------
+.metro-health-check*
+*.jsbundle
+.bundle/
+vendor/bundle/
+
+# --------------------------------------------------
+# 5. Firebase & Logs
+# --------------------------------------------------
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+*.log
+emulator_screen.png
+
+# --------------------------------------------------
+# 6. IDEs & Editors
+# --------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# --------------------------------------------------
+# 7. OS Generated Files
+# --------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --------------------------------------------------
+# 8. Testing & Coverage
+# --------------------------------------------------
+coverage/
+.nyc_output/

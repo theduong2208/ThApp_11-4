@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,57 +6,88 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  ActivityIndicator,
+  ListRenderItem,
 } from 'react-native';
-import { NotificationItem } from '../types';
-import { initialNotifications } from '../data/mockData';
+import { NotificationsScreenProps } from '../types/navigation';
+import { NotificationItem } from '../types/models';
+import {
+  subscribeNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from '../services/notificationService';
+import { getCurrentUser } from '../services/authService';
+import { formatConversationTime } from '../utils/formatTime';
 
-export const NotificationsScreen: React.FC = () => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+export const NotificationsScreen: React.FC<NotificationsScreenProps> = () => {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const currentUser = getCurrentUser();
+  const currentUid = currentUser?.uid ?? '';
+
+  useEffect(() => {
+    if (!currentUid) {
+      setLoading(false);
+      return;
+    }
+
+    // Lắng nghe thông báo tin nhắn thời gian thực từ Firebase
+    const unsubscribe = subscribeNotifications(currentUid, (items) => {
+      setNotifications(items);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUid]);
 
   // Đánh dấu 1 thông báo là đã đọc
   const handleMarkAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, isRead: true } : item))
-    );
+    if (currentUid) {
+      markNotificationAsRead(currentUid, id);
+    }
   };
 
   // Đánh dấu tất cả thông báo là đã đọc
   const handleMarkAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((item) => ({ ...item, isRead: true }))
-    );
+    if (currentUid && notifications.length > 0) {
+      markAllNotificationsAsRead(currentUid, notifications);
+    }
   };
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const renderNotificationItem = ({ item }: { item: NotificationItem }) => (
+  const renderItem: ListRenderItem<NotificationItem> = ({ item }) => (
     <TouchableOpacity
       style={[
         styles.notiItem,
-        !item.isRead ? styles.unreadItem : styles.readItem,
+        !item.read ? styles.unreadItem : styles.readItem,
       ]}
       activeOpacity={0.7}
       onPress={() => handleMarkAsRead(item.id)}
     >
       <View style={styles.iconContainer}>
-        <Text style={styles.notiIcon}>{item.isRead ? '✉️' : '🔔'}</Text>
+        <Text style={styles.notiIcon}>{item.read ? '✉️' : '🔔'}</Text>
       </View>
 
       <View style={styles.contentContainer}>
         <View style={styles.titleRow}>
           <Text
             style={[
-              styles.titleText,
-              !item.isRead && styles.unreadTitleText,
+              styles.contentText,
+              !item.read && styles.unreadContentText,
             ]}
           >
-            {item.title}
+            {item.content}
           </Text>
-          {!item.isRead && <View style={styles.unreadDot} />}
+          {!item.read && <View style={styles.unreadDot} />}
         </View>
 
-        <Text style={styles.bodyText}>{item.content}</Text>
-        <Text style={styles.timeText}>{item.time}</Text>
+        <Text style={styles.timeText}>
+          {formatConversationTime(item.time)}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -68,7 +99,7 @@ export const NotificationsScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Thông báo</Text>
+          <Text style={styles.headerTitle}>Thông Báo</Text>
           <Text style={styles.subtitle}>
             {unreadCount > 0
               ? `Bạn có ${unreadCount} thông báo chưa đọc`
@@ -86,20 +117,32 @@ export const NotificationsScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Danh sách thông báo */}
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        renderItem={renderNotificationItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔔</Text>
-            <Text style={styles.emptyText}>Hiện chưa có thông báo mới nào</Text>
-          </View>
-        }
-      />
+      {/* Danh sách thông báo Realtime */}
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#0284C7" />
+          <Text style={styles.loadingText}>Đang tải thông báo...</Text>
+        </View>
+      ) : (
+        <FlatList<NotificationItem>
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={
+            notifications.length === 0 ? styles.emptyList : styles.listContent
+          }
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyIcon}>🔔</Text>
+              <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
+              <Text style={styles.emptySubtitle}>
+                Bạn sẽ nhận được thông báo khi có người nhắn tin hoặc chia sẻ vị trí!
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };
@@ -107,74 +150,105 @@ export const NotificationsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: '#ffffff',
+    paddingBottom: 14,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#E2E8F0',
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#64748B',
     marginTop: 2,
   },
   markAllButton: {
-    backgroundColor: '#eff6ff',
-    paddingVertical: 6,
     paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
+    backgroundColor: '#E0F2FE',
   },
   markAllText: {
-    color: '#2563eb',
+    color: '#0284C7',
     fontSize: 13,
     fontWeight: '600',
   },
   listContent: {
     paddingVertical: 8,
   },
+  emptyList: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   notiItem: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: 16,
     marginHorizontal: 12,
     marginVertical: 4,
     borderRadius: 12,
-    borderWidth: 1,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
   },
   unreadItem: {
-    backgroundColor: '#f0f9ff',
-    borderColor: '#bae6fd',
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0284C7',
   },
   readItem: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
+    backgroundColor: '#F1F5F9',
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e0f2fe',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 12,
+    justifyContent: 'center',
   },
   notiIcon: {
-    fontSize: 20,
+    fontSize: 24,
   },
   contentContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',
@@ -182,44 +256,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  titleText: {
-    fontSize: 15,
-    fontWeight: '500',
+  contentText: {
+    fontSize: 14,
     color: '#334155',
     flex: 1,
-    marginRight: 6,
   },
-  unreadTitleText: {
+  unreadContentText: {
     fontWeight: '700',
-    color: '#0369a1',
+    color: '#0F172A',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#0284c7',
-  },
-  bodyText: {
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 18,
-    marginBottom: 6,
+    backgroundColor: '#0284C7',
+    marginLeft: 8,
   },
   timeText: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#94a3b8',
+    fontSize: 11,
+    color: '#94A3B8',
   },
 });
