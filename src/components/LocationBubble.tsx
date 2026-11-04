@@ -284,11 +284,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   mapOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
