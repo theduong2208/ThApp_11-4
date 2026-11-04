@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Linking,
+  Modal,
+  Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { Message } from '../types/models';
 import { formatMessageTime } from '../utils/formatTime';
@@ -20,75 +23,186 @@ export const LocationBubble: React.FC<LocationBubbleProps> = ({
   isMe,
 }) => {
   const { latitude, longitude } = message;
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const handleOpenMap = async () => {
+  // Mở ứng dụng bản đồ bên ngoài (Google Maps / Apple Maps)
+  const openExternalMap = async () => {
     if (latitude === undefined || longitude === undefined) {
       Alert.alert('Lỗi', 'Không có dữ liệu tọa độ hợp lệ.');
       return;
     }
-    const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-    const supported = await Linking.canOpenURL(url);
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      Alert.alert('Lỗi', 'Không thể mở ứng dụng bản đồ hoặc trình duyệt.');
+
+    const geoUrl =
+      Platform.OS === 'ios'
+        ? `maps://?q=${latitude},${longitude}`
+        : `geo:${latitude},${longitude}?q=${latitude},${longitude}(Vị trí của tôi)`;
+
+    const webUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+
+    try {
+      await Linking.openURL(geoUrl);
+    } catch {
+      try {
+        await Linking.openURL(webUrl);
+      } catch (err) {
+        Alert.alert('Lỗi', 'Không thể khởi chạy ứng dụng bản đồ.');
+      }
     }
   };
 
+  const hasCoords = latitude !== undefined && longitude !== undefined;
+  // URL ảnh bản đồ tĩnh OpenStreetMap để hiển thị trực quan
+  const mapPreviewUrl = hasCoords
+    ? `https://static-maps.yandex.ru/1.x/?ll=${longitude},${latitude}&z=14&l=map&size=360,180&pt=${longitude},${latitude},pm2rdm`
+    : '';
+
   return (
-    <View
-      style={[
-        styles.container,
-        isMe ? styles.containerMe : styles.containerOther,
-      ]}
-    >
-      <TouchableOpacity
+    <>
+      <View
         style={[
-          styles.bubble,
-          isMe ? styles.bubbleMe : styles.bubbleOther,
+          styles.container,
+          isMe ? styles.containerMe : styles.containerOther,
         ]}
-        activeOpacity={0.8}
-        onPress={handleOpenMap}
       >
-        <View style={styles.headerRow}>
-          <Text style={styles.icon}>📍</Text>
-          <View style={styles.titleContainer}>
+        <TouchableOpacity
+          style={[
+            styles.bubble,
+            isMe ? styles.bubbleMe : styles.bubbleOther,
+          ]}
+          activeOpacity={0.85}
+          onPress={() => setModalVisible(true)}
+        >
+          {/* Header hiển thị biểu tượng và tọa độ */}
+          <View style={styles.headerRow}>
+            <Text style={styles.pinIcon}>📍</Text>
+            <View style={styles.titleWrapper}>
+              <Text
+                style={[
+                  styles.title,
+                  isMe ? styles.titleMe : styles.titleOther,
+                ]}
+              >
+                Vị trí của tôi
+              </Text>
+              <Text
+                style={[
+                  styles.coordsText,
+                  isMe ? styles.coordsMe : styles.coordsOther,
+                ]}
+              >
+                {latitude?.toFixed(5)}, {longitude?.toFixed(5)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Khung xem trước bản đồ */}
+          <View style={styles.previewContainer}>
+            {mapPreviewUrl ? (
+              <Image
+                source={{ uri: mapPreviewUrl }}
+                style={styles.mapImage}
+                resizeMode="cover"
+              />
+            ) : null}
+            <View style={styles.mapOverlay}>
+              <View style={styles.centerMarker}>
+                <Text style={styles.markerText}>📍</Text>
+              </View>
+              <Text style={styles.tapToViewText}>Chạm để xem bản đồ</Text>
+            </View>
+          </View>
+
+          {/* Thanh chân bong bóng */}
+          <View style={styles.footerRow}>
             <Text
               style={[
-                styles.title,
-                isMe ? styles.titleMe : styles.titleOther,
+                styles.actionLabel,
+                isMe ? styles.actionLabelMe : styles.actionLabelOther,
               ]}
             >
-              Vị trí của tôi
+              Mở bản đồ ↗
             </Text>
             <Text
-              style={[
-                styles.coords,
-                isMe ? styles.coordsMe : styles.coordsOther,
-              ]}
+              style={[styles.time, isMe ? styles.timeMe : styles.timeOther]}
             >
-              {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
+              {formatMessageTime(message.createdAt)}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.actionRow}>
-          <Text
-            style={[
-              styles.actionText,
-              isMe ? styles.actionTextMe : styles.actionTextOther,
-            ]}
-          >
-            Chạm để mở trên Google Maps ↗
-          </Text>
-          <Text
-            style={[styles.time, isMe ? styles.timeMe : styles.timeOther]}
-          >
-            {formatMessageTime(message.createdAt)}
-          </Text>
+      {/* Modal hiển thị bản đồ trực quan */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            {/* Tiêu đề Modal */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📍 Bản Đồ Vị Trí</Text>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.closeIconBtn}
+              >
+                <Text style={styles.closeIconText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Khung bản đồ phóng to */}
+            <View style={styles.modalMapBox}>
+              {mapPreviewUrl ? (
+                <Image
+                  source={{ uri: mapPreviewUrl }}
+                  style={styles.modalMapImage}
+                  resizeMode="cover"
+                />
+              ) : null}
+              <View style={styles.modalMarkerWrapper}>
+                <Text style={styles.modalMarkerPin}>📍</Text>
+                <View style={styles.modalMarkerPulse} />
+              </View>
+            </View>
+
+            {/* Chi tiết tọa độ */}
+            <View style={styles.infoBox}>
+              <View style={styles.coordRow}>
+                <Text style={styles.coordLabel}>Vĩ độ (Latitude):</Text>
+                <Text style={styles.coordValue}>{latitude?.toFixed(6)}</Text>
+              </View>
+              <View style={styles.coordRow}>
+                <Text style={styles.coordLabel}>Kinh độ (Longitude):</Text>
+                <Text style={styles.coordValue}>{longitude?.toFixed(6)}</Text>
+              </View>
+            </View>
+
+            {/* Nút hành động */}
+            <View style={styles.modalActionButtons}>
+              <TouchableOpacity
+                style={styles.openMapsBtn}
+                onPress={() => {
+                  setModalVisible(false);
+                  openExternalMap();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.openMapsText}>Mở bằng Google Maps ↗</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.closeModalBtn}
+                onPress={() => setModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeModalText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </TouchableOpacity>
-    </View>
+      </Modal>
+    </>
   );
 };
 
@@ -105,8 +219,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bubble: {
-    width: 250,
-    padding: 12,
+    width: 260,
+    padding: 10,
     borderRadius: 16,
     elevation: 2,
     shadowColor: '#000',
@@ -115,7 +229,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   bubbleMe: {
-    backgroundColor: '#0369A1',
+    backgroundColor: '#0284C7',
     borderBottomRightRadius: 4,
   },
   bubbleOther: {
@@ -129,11 +243,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  icon: {
-    fontSize: 28,
-    marginRight: 10,
+  pinIcon: {
+    fontSize: 26,
+    marginRight: 8,
   },
-  titleContainer: {
+  titleWrapper: {
     flex: 1,
   },
   title: {
@@ -146,8 +260,8 @@ const styles = StyleSheet.create({
   titleOther: {
     color: '#0F172A',
   },
-  coords: {
-    fontSize: 12,
+  coordsText: {
+    fontSize: 11,
     marginTop: 2,
   },
   coordsMe: {
@@ -156,22 +270,67 @@ const styles = StyleSheet.create({
   coordsOther: {
     color: '#64748B',
   },
-  actionRow: {
-    borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-    paddingTop: 6,
+  previewContainer: {
+    height: 110,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mapOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  markerText: {
+    fontSize: 18,
+  },
+  tapToViewText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
   },
-  actionText: {
-    fontSize: 11,
+  actionLabel: {
+    fontSize: 12,
     fontWeight: '600',
   },
-  actionTextMe: {
+  actionLabelMe: {
     color: '#BAE6FD',
   },
-  actionTextOther: {
+  actionLabelOther: {
     color: '#0284C7',
   },
   time: {
@@ -183,5 +342,120 @@ const styles = StyleSheet.create({
   timeOther: {
     color: '#94A3B8',
   },
-});
 
+  // Modal styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  closeIconBtn: {
+    padding: 6,
+  },
+  closeIconText: {
+    fontSize: 18,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  modalMapBox: {
+    width: '100%',
+    height: 180,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalMapImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalMarkerWrapper: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalMarkerPin: {
+    fontSize: 40,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  modalMarkerPulse: {
+    width: 16,
+    height: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  infoBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  coordRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  coordLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  coordValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalActionButtons: {
+    marginTop: 16,
+  },
+  openMapsBtn: {
+    backgroundColor: '#0284C7',
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  openMapsText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  closeModalBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  closeModalText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
