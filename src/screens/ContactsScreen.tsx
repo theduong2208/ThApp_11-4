@@ -12,6 +12,7 @@ import { ContactsScreenProps } from '../types/navigation';
 import { AppUser } from '../types/models';
 import { subscribeUsers } from '../services/userService';
 import { getCurrentUser } from '../services/authService';
+import { getDirectConvId } from '../services/chatService';
 import { removeVietnameseTones } from '../utils/removeVietnameseTones';
 import { UserItem } from '../components/UserItem';
 
@@ -28,7 +29,6 @@ export const ContactsScreen: React.FC<ContactsScreenProps> = ({ navigation }) =>
       return;
     }
 
-    // Lắng nghe danh bạ người dùng khác theo thời gian thực
     const unsubscribe = subscribeUsers(currentUser.uid, (userList) => {
       setUsers(userList);
       setLoading(false);
@@ -39,7 +39,6 @@ export const ContactsScreen: React.FC<ContactsScreenProps> = ({ navigation }) =>
     };
   }, [currentUser]);
 
-  // Lọc danh bạ theo tên (không phân biệt hoa/thường, không dấu)
   const filteredUsers = useMemo(() => {
     const query = removeVietnameseTones(searchQuery);
     if (!query) return users;
@@ -50,16 +49,19 @@ export const ContactsScreen: React.FC<ContactsScreenProps> = ({ navigation }) =>
     });
   }, [users, searchQuery]);
 
+  const handleSelectUser = (user: AppUser) => {
+    if (!currentUser) return;
+    const convId = getDirectConvId(currentUser.uid, user.uid);
+    navigation.navigate('Chat', {
+      convId,
+      name: user.name,
+      type: 'direct',
+      peerId: user.uid,
+    });
+  };
+
   const renderItem: ListRenderItem<AppUser> = ({ item }) => (
-    <UserItem
-      user={item}
-      onPress={() =>
-        navigation.navigate('Chat', {
-          peerId: item.uid,
-          peerName: item.name,
-        })
-      }
-    />
+    <UserItem user={item} onPress={() => handleSelectUser(item)} />
   );
 
   return (
@@ -67,7 +69,7 @@ export const ContactsScreen: React.FC<ContactsScreenProps> = ({ navigation }) =>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Danh Bạ</Text>
         <Text style={styles.headerSubtitle}>
-          {users.length} người dùng trực tuyến/ngoại tuyến
+          {users.length} người dùng trong hệ thống
         </Text>
 
         <View style={styles.searchBar}>

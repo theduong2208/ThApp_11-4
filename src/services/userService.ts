@@ -28,7 +28,6 @@ export function subscribeUsers(
 
       // Loại bỏ chính tài khoản đang đăng nhập
       if (uid && uid !== currentUid && data) {
-        // Lấy tên người dùng; nếu chưa có tên thì lấy tiền tố email
         let displayName = 'Người dùng';
         if (typeof data.name === 'string' && data.name.trim().length > 0) {
           displayName = data.name.trim();
@@ -40,6 +39,7 @@ export function subscribeUsers(
           uid,
           name: displayName,
           email: typeof data.email === 'string' ? data.email : '',
+          avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : undefined,
           online: Boolean(data.online),
           lastSeen: typeof data.lastSeen === 'number' ? data.lastSeen : 0,
         });
@@ -53,25 +53,23 @@ export function subscribeUsers(
 }
 
 // Thiết lập presence (trạng thái Online/Offline tự động qua .info/connected)
-// Tự động đồng bộ tên và email từ Auth profile nếu chưa có trên Realtime Database
 export function setupPresence(
   uid: string,
   displayName?: string | null,
-  email?: string | null
+  email?: string | null,
+  avatarUrl?: string | null
 ): () => void {
   const connectedRef = ref(db, '.info/connected');
   const userStatusRef = ref(db, `users/${uid}`);
 
   const unsubscribe = onValue(connectedRef, (snap) => {
     if (snap.val() === true) {
-      // Khi mất kết nối (tắt app, mất mạng), Firebase Server sẽ tự động cập nhật
       const onDisconnectRef = onDisconnect(userStatusRef);
       onDisconnectRef.update({
         online: false,
         lastSeen: serverTimestamp(),
       });
 
-      // Đánh dấu thiết bị đang Online và đồng bộ tên/email
       const statusUpdate: Record<string, unknown> = {
         online: true,
         uid,
@@ -82,6 +80,9 @@ export function setupPresence(
       }
       if (email && email.trim().length > 0) {
         statusUpdate.email = email.trim();
+      }
+      if (avatarUrl && avatarUrl.trim().length > 0) {
+        statusUpdate.avatarUrl = avatarUrl.trim();
       }
 
       update(userStatusRef, statusUpdate);

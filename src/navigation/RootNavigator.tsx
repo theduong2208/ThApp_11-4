@@ -5,6 +5,9 @@ import { RootStackParamList } from '../types/navigation';
 import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
 import { ChatScreen } from '../screens/ChatScreen';
+import { CreateGroupScreen } from '../screens/CreateGroupScreen';
+import { GroupSettingsScreen } from '../screens/GroupSettingsScreen';
+import { ImageViewerScreen } from '../screens/ImageViewerScreen';
 import { useAuth } from '../hooks/useAuth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -33,6 +36,21 @@ export const RootNavigator: React.FC = () => {
             name="Chat"
             component={ChatScreen}
             options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="CreateGroup"
+            component={CreateGroupScreen}
+            options={{ animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
+            name="GroupSettings"
+            component={GroupSettingsScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="ImageViewer"
+            component={ImageViewerScreen}
+            options={{ animation: 'fade' }}
           />
         </>
       ) : (

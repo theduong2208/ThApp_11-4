@@ -6,17 +6,46 @@
         ".write": "auth != null && auth.uid === $uid"
       }
     },
-    "chats": {
-      "$chatId": {
-        ".read": "auth != null && $chatId.contains(auth.uid)",
-        ".write": "auth != null && $chatId.contains(auth.uid)"
+    "conversations": {
+      "$convId": {
+        ".read": "auth != null && (data.child('members/' + auth.uid).exists() || !data.exists() || $convId.contains(auth.uid))",
+        ".write": "auth != null && (!data.exists() || data.child('members/' + auth.uid).exists() || data.child('createdBy').val() === auth.uid || $convId.contains(auth.uid))"
+      }
+    },
+    "messages": {
+      "$convId": {
+        ".read": "auth != null && (root.child('conversations/' + $convId + '/members/' + auth.uid).exists() || $convId.contains(auth.uid))",
+        "$msgId": {
+          ".write": "auth != null && (root.child('conversations/' + $convId + '/members/' + auth.uid).exists() || !root.child('conversations/' + $convId).exists() || $convId.contains(auth.uid)) && ((!data.exists() && (newData.child('senderId').val() === auth.uid || newData.child('senderName').val() === 'Hệ thống')) || (data.exists() && data.child('senderId').val() === auth.uid))",
+          "reactions": {
+            "$reactionUid": {
+              ".write": "auth != null && auth.uid === $reactionUid && (root.child('conversations/' + $convId + '/members/' + auth.uid).exists() || $convId.contains(auth.uid))"
+            }
+          }
+        }
       }
     },
     "userChats": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        "$peerId": {
-          ".write": "auth != null && (auth.uid === $uid || auth.uid === $peerId)"
+        "$convId": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('conversations/' + $convId + '/members/' + auth.uid).exists() || !root.child('conversations/' + $convId).exists() || $convId.contains(auth.uid))"
+        }
+      }
+    },
+    "typing": {
+      "$convId": {
+        ".read": "auth != null && (root.child('conversations/' + $convId + '/members/' + auth.uid).exists() || $convId.contains(auth.uid))",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "readStatus": {
+      "$convId": {
+        ".read": "auth != null && (root.child('conversations/' + $convId + '/members/' + auth.uid).exists() || $convId.contains(auth.uid))",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
         }
       }
     },

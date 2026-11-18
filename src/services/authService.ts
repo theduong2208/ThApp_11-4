@@ -42,7 +42,6 @@ export async function register(
     });
   } catch (dbError) {
     console.warn('Lỗi ghi thông tin người dùng vào Realtime Database:', dbError);
-    // Không ném lỗi ra ngoài vì tài khoản Auth đã được tạo thành công
   }
 
   return user;
@@ -67,6 +66,30 @@ export async function logout(): Promise<void> {
     }
   }
   await signOut(auth);
+}
+
+// Cập nhật thông tin hồ sơ (Tên hiển thị & Ảnh đại diện)
+export async function updateUserProfile(
+  name: string,
+  avatarUrl?: string
+): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const trimmed = name.trim();
+  const profileUpdates: { displayName?: string; photoURL?: string } = {};
+  if (trimmed) profileUpdates.displayName = trimmed;
+  if (avatarUrl !== undefined) profileUpdates.photoURL = avatarUrl;
+
+  await updateProfile(user, profileUpdates);
+
+  const dbUpdates: Record<string, unknown> = {};
+  if (trimmed) dbUpdates.name = trimmed;
+  if (avatarUrl !== undefined) dbUpdates.avatarUrl = avatarUrl;
+
+  if (Object.keys(dbUpdates).length > 0) {
+    await update(ref(db, `users/${user.uid}`), dbUpdates);
+  }
 }
 
 // Lắng nghe thay đổi trạng thái phiên đăng nhập

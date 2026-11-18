@@ -1,22 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 
 interface AvatarProps {
   name: string;
+  avatarUrl?: string;
   size?: number;
   backgroundColor?: string;
 }
 
-// Bảng màu đẹp để gán ngẫu nhiên theo chữ cái
 const AVATAR_COLORS = [
-  '#4F46E5', // Indigo
-  '#0EA5E9', // Sky
-  '#10B981', // Emerald
-  '#F59E0B', // Amber
-  '#EF4444', // Red
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#14B8A6', // Teal
+  '#4F46E5', '#0EA5E9', '#10B981', '#F59E0B',
+  '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6',
 ];
 
 function getColorForName(name: string): string {
@@ -31,11 +25,27 @@ function getColorForName(name: string): string {
 
 export const Avatar: React.FC<AvatarProps> = ({
   name,
+  avatarUrl,
   size = 46,
   backgroundColor,
 }) => {
   const initial = name ? name.trim().charAt(0).toUpperCase() : '?';
   const bgColor = backgroundColor || getColorForName(name);
+
+  if (avatarUrl) {
+    return (
+      <Image
+        source={{ uri: avatarUrl }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: '#E2E8F0',
+        }}
+        resizeMode="cover"
+      />
+    );
+  }
 
   return (
     <View
@@ -66,4 +76,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

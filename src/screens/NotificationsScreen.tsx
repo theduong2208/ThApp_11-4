@@ -19,7 +19,9 @@ import {
 import { getCurrentUser } from '../services/authService';
 import { formatConversationTime } from '../utils/formatTime';
 
-export const NotificationsScreen: React.FC<NotificationsScreenProps> = () => {
+export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
+  navigation,
+}) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,10 +45,19 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = () => {
     };
   }, [currentUid]);
 
-  // Đánh dấu 1 thông báo là đã đọc
-  const handleMarkAsRead = (id: string) => {
-    if (currentUid) {
-      markNotificationAsRead(currentUid, id);
+  // Đánh dấu 1 thông báo là đã đọc và chuyển đến cuộc trò chuyện tương ứng
+  const handlePressNotification = (item: NotificationItem) => {
+    if (currentUid && !item.read) {
+      markNotificationAsRead(currentUid, item.id);
+    }
+
+    if (item.convId) {
+      navigation.navigate('Chat', {
+        convId: item.convId,
+        name: item.fromName || 'Cuộc trò chuyện',
+        type: item.type === 'added_to_group' ? 'group' : 'direct',
+        peerId: item.type === 'added_to_group' ? undefined : item.fromUid,
+      });
     }
   };
 
@@ -59,6 +70,18 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = () => {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const getNotificationIcon = (type: string, read: boolean) => {
+    switch (type) {
+      case 'reaction':
+        return '❤️';
+      case 'added_to_group':
+        return '👥';
+      case 'new_message':
+      default:
+        return read ? '✉️' : '💬';
+    }
+  };
+
   const renderItem: ListRenderItem<NotificationItem> = ({ item }) => (
     <TouchableOpacity
       style={[
@@ -66,10 +89,12 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = () => {
         !item.read ? styles.unreadItem : styles.readItem,
       ]}
       activeOpacity={0.7}
-      onPress={() => handleMarkAsRead(item.id)}
+      onPress={() => handlePressNotification(item)}
     >
       <View style={styles.iconContainer}>
-        <Text style={styles.notiIcon}>{item.read ? '✉️' : '🔔'}</Text>
+        <Text style={styles.notiIcon}>
+          {getNotificationIcon(item.type, item.read)}
+        </Text>
       </View>
 
       <View style={styles.contentContainer}>
@@ -80,13 +105,13 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = () => {
               !item.read && styles.unreadContentText,
             ]}
           >
-            {item.content}
+            {item.text}
           </Text>
           {!item.read && <View style={styles.unreadDot} />}
         </View>
 
         <Text style={styles.timeText}>
-          {formatConversationTime(item.time)}
+          {formatConversationTime(item.createdAt)}
         </Text>
       </View>
     </TouchableOpacity>

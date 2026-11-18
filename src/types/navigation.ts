@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
+import { ConversationType } from './models';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -17,7 +18,15 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
-  Chat: { peerId: string; peerName: string };
+  Chat: {
+    convId: string;
+    name: string;
+    type: ConversationType;
+    peerId?: string; // Dành riêng cho 1-1 để theo dõi online/lastSeen
+  };
+  CreateGroup: undefined;
+  GroupSettings: { convId: string };
+  ImageViewer: { imageUrl: string };
 };
 
 declare global {
@@ -26,11 +35,11 @@ declare global {
   }
 }
 
-// Props type cho các màn hình Auth
+// Kiểu Props cho màn hình Auth
 export type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 export type RegisterScreenProps = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
-// Props type cho các màn hình Tab (kết hợp với RootStackParamList để có thể navigate sang Chat)
+// Kiểu Props cho màn hình Tab
 export type HomeScreenProps = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Home'>,
   NativeStackScreenProps<RootStackParamList>
@@ -51,6 +60,8 @@ export type SettingsScreenProps = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-// Props type cho màn hình Chat
+// Kiểu Props cho các màn hình Stack
 export type ChatScreenProps = NativeStackScreenProps<RootStackParamList, 'Chat'>;
-
+export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
+export type GroupSettingsScreenProps = NativeStackScreenProps<RootStackParamList, 'GroupSettings'>;
+export type ImageViewerScreenProps = NativeStackScreenProps<RootStackParamList, 'ImageViewer'>;

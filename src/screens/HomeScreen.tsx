@@ -5,6 +5,7 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
   ListRenderItem,
 } from 'react-native';
 import { HomeScreenProps } from '../types/navigation';
@@ -25,7 +26,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       return;
     }
 
-    // Lắng nghe danh sách cuộc trò chuyện theo thời gian thực
+    // Lắng nghe danh sách tất cả cuộc hội thoại (1-1 & Nhóm)
     const unsubscribe = subscribeConversations(
       currentUser.uid,
       (convList) => {
@@ -34,31 +35,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }
     );
 
-    // Hủy đăng ký listener khi unmount để tránh rò rỉ bộ nhớ
     return () => {
       unsubscribe();
     };
   }, [currentUser]);
 
+  const handleOpenChat = (item: Conversation) => {
+    let peerId: string | undefined = undefined;
+    if (item.type === 'direct' && item.members && currentUser) {
+      peerId = Object.keys(item.members).find((id) => id !== currentUser.uid);
+    }
+
+    navigation.navigate('Chat', {
+      convId: item.convId,
+      name: item.name,
+      type: item.type,
+      peerId,
+    });
+  };
+
   const renderItem: ListRenderItem<Conversation> = ({ item }) => (
     <ConversationItem
       conversation={item}
-      onPress={() =>
-        navigation.navigate('Chat', {
-          peerId: item.peerId,
-          peerName: item.peerName,
-        })
-      }
+      onPress={() => handleOpenChat(item)}
     />
   );
 
   return (
     <View style={styles.container}>
+      {/* Header với nút Tạo nhóm mới */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Đoạn Chat</Text>
-        <Text style={styles.headerSubtitle}>
-          {conversations.length} cuộc hội thoại
-        </Text>
+        <View>
+          <Text style={styles.headerTitle}>Đoạn Chat</Text>
+          <Text style={styles.headerSubtitle}>
+            {conversations.length} cuộc hội thoại
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.createGroupBtn}
+          onPress={() => navigation.navigate('CreateGroup')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.createGroupText}>+ Tạo nhóm</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -69,7 +89,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       ) : (
         <FlatList<Conversation>
           data={conversations}
-          keyExtractor={(item) => item.peerId}
+          keyExtractor={(item) => item.convId}
           renderItem={renderItem}
           contentContainerStyle={
             conversations.length === 0 ? styles.emptyList : styles.listContent
@@ -79,7 +99,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <Text style={styles.emptyIcon}>💬</Text>
               <Text style={styles.emptyTitle}>Chưa có cuộc trò chuyện</Text>
               <Text style={styles.emptySubtitle}>
-                Chuyển sang tab Danh bạ để bắt đầu nhắn tin với bạn bè!
+                Chuyển sang tab Danh bạ hoặc bấm "+ Tạo nhóm" để bắt đầu trò chuyện!
               </Text>
             </View>
           }
@@ -95,6 +115,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 12,
@@ -111,6 +134,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     marginTop: 2,
+  },
+  createGroupBtn: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+  },
+  createGroupText: {
+    color: '#0284C7',
+    fontWeight: '700',
+    fontSize: 13,
   },
   listContent: {
     backgroundColor: '#FFFFFF',

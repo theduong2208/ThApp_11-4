@@ -1,8 +1,8 @@
 import { ref, onValue } from 'firebase/database';
 import { db } from './firebase';
-import { Conversation, MessageType } from '../types/models';
+import { Conversation, MessageType, ConversationType } from '../types/models';
 
-// Lắng nghe danh sách cuộc trò chuyện của người dùng hiện tại
+// Lắng nghe danh sách tất cả cuộc hội thoại (1-1 và Nhóm) của người dùng hiện tại
 export function subscribeConversations(
   myUid: string,
   callback: (conversations: Conversation[]) => void
@@ -18,25 +18,28 @@ export function subscribeConversations(
     const conversations: Conversation[] = [];
     snapshot.forEach((childSnapshot) => {
       const data = childSnapshot.val() as Record<string, unknown> | null;
-      const peerId = childSnapshot.key ?? '';
+      const convId = childSnapshot.key ?? '';
 
-      if (data && peerId) {
+      if (data && convId) {
         conversations.push({
-          peerId,
-          peerName: typeof data.peerName === 'string' ? data.peerName : 'Người dùng',
+          convId,
+          type: (data.type as ConversationType) || 'direct',
+          name: typeof data.name === 'string' ? data.name : 'Cuộc trò chuyện',
+          avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : undefined,
           lastMessage: typeof data.lastMessage === 'string' ? data.lastMessage : '',
           lastMessageType: (data.lastMessageType as MessageType) || 'text',
-          lastTime: typeof data.lastTime === 'number' ? data.lastTime : 0,
+          lastSenderId: typeof data.lastSenderId === 'string' ? data.lastSenderId : '',
+          updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : (typeof data.lastTime === 'number' ? data.lastTime : 0),
           unread: typeof data.unread === 'number' ? data.unread : 0,
+          members: (data.members as Record<string, boolean>) || undefined,
         });
       }
     });
 
-    // Sắp xếp cuộc trò chuyện có tin nhắn mới nhất lên đầu
-    conversations.sort((a, b) => b.lastTime - a.lastTime);
+    // Sắp xếp cuộc trò chuyện có tương tác mới nhất lên đầu
+    conversations.sort((a, b) => b.updatedAt - a.updatedAt);
     callback(conversations);
   });
 
   return unsubscribe;
 }
-

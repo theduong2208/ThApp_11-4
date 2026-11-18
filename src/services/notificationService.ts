@@ -1,6 +1,6 @@
 import { ref, onValue, update } from 'firebase/database';
 import { db } from './firebase';
-import { NotificationItem } from '../types/models';
+import { NotificationItem, NotificationType } from '../types/models';
 
 // Lắng nghe danh sách thông báo của người dùng theo thời gian thực từ Realtime Database
 export function subscribeNotifications(
@@ -11,15 +11,7 @@ export function subscribeNotifications(
 
   const unsubscribe = onValue(notiRef, (snapshot) => {
     if (!snapshot.exists()) {
-      // Thông báo chào mừng mặc định nếu người dùng chưa có tin nhắn nào
-      callback([
-        {
-          id: 'welcome',
-          content: 'Chào mừng bạn! Thông báo về tin nhắn mới sẽ hiển thị tại đây.',
-          time: Date.now(),
-          read: true,
-        },
-      ]);
+      callback([]);
       return;
     }
 
@@ -30,15 +22,19 @@ export function subscribeNotifications(
       if (data) {
         items.push({
           id,
-          content: typeof data.content === 'string' ? data.content : 'Bạn có thông báo mới',
-          time: typeof data.time === 'number' ? data.time : Date.now(),
+          type: (data.type as NotificationType) || 'new_message',
+          convId: typeof data.convId === 'string' ? data.convId : '',
+          fromUid: typeof data.fromUid === 'string' ? data.fromUid : '',
+          fromName: typeof data.fromName === 'string' ? data.fromName : undefined,
+          text: typeof data.text === 'string' ? data.text : (typeof data.content === 'string' ? data.content : 'Bạn có thông báo mới'),
+          createdAt: typeof data.createdAt === 'number' ? data.createdAt : (typeof data.time === 'number' ? data.time : Date.now()),
           read: Boolean(data.read),
         });
       }
     });
 
     // Sắp xếp thông báo mới nhất lên đầu
-    items.sort((a, b) => b.time - a.time);
+    items.sort((a, b) => b.createdAt - a.createdAt);
     callback(items);
   });
 
@@ -50,7 +46,6 @@ export async function markNotificationAsRead(
   uid: string,
   id: string
 ): Promise<void> {
-  if (id === 'welcome') return;
   try {
     await update(ref(db, `notifications/${uid}/${id}`), {
       read: true,
@@ -67,7 +62,7 @@ export async function markAllNotificationsAsRead(
 ): Promise<void> {
   const updates: Record<string, unknown> = {};
   for (const noti of notifications) {
-    if (noti.id !== 'welcome' && !noti.read) {
+    if (!noti.read) {
       updates[`notifications/${uid}/${noti.id}/read`] = true;
     }
   }

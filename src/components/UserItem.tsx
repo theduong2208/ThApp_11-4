@@ -7,19 +7,33 @@ import { OnlineDot } from './OnlineDot';
 interface UserItemProps {
   user: AppUser;
   onPress: () => void;
+  selectable?: boolean;
+  selected?: boolean;
 }
 
-export const UserItem: React.FC<UserItemProps> = ({ user, onPress }) => {
-  const { name, email, online } = user;
+export const UserItem: React.FC<UserItemProps> = ({
+  user,
+  onPress,
+  selectable,
+  selected,
+}) => {
+  const { name, email, avatarUrl, online } = user;
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, selected && styles.selectedContainer]}
       activeOpacity={0.7}
       onPress={onPress}
     >
+      {/* Checkbox khi ở chế độ chọn thành viên tạo nhóm */}
+      {selectable && (
+        <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+          {selected && <Text style={styles.checkmark}>✓</Text>}
+        </View>
+      )}
+
       <View style={styles.avatarWrapper}>
-        <Avatar name={name} size={48} />
+        <Avatar name={name} avatarUrl={avatarUrl} size={48} />
         <View style={styles.dotPosition}>
           <OnlineDot online={online} size={12} />
         </View>
@@ -34,16 +48,18 @@ export const UserItem: React.FC<UserItemProps> = ({ user, onPress }) => {
         </Text>
       </View>
 
-      <View style={styles.statusBadge}>
-        <Text
-          style={[
-            styles.statusText,
-            online ? styles.statusOnline : styles.statusOffline,
-          ]}
-        >
-          {online ? 'Online' : 'Offline'}
-        </Text>
-      </View>
+      {!selectable && (
+        <View style={styles.statusBadge}>
+          <Text
+            style={[
+              styles.statusText,
+              online ? styles.statusOnline : styles.statusOffline,
+            ]}
+          >
+            {online ? 'Online' : 'Offline'}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -57,6 +73,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 0.5,
     borderBottomColor: '#F1F5F9',
+  },
+  selectedContainer: {
+    backgroundColor: '#F0F9FF',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  checkboxSelected: {
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   avatarWrapper: {
     position: 'relative',
@@ -97,4 +135,3 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
 });
-

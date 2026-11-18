@@ -13,11 +13,24 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
   conversation,
   onPress,
 }) => {
-  const { peerName, lastMessage, lastMessageType, lastTime, unread } =
-    conversation;
+  const {
+    name,
+    avatarUrl,
+    type,
+    lastMessage,
+    lastMessageType,
+    updatedAt,
+    unread,
+  } = conversation;
 
-  const displayMessage =
-    lastMessageType === 'location' ? '📍 Đã gửi một vị trí' : lastMessage;
+  let displayMessage = lastMessage;
+  if (lastMessageType === 'image') {
+    displayMessage = '📷 Hình ảnh';
+  } else if (lastMessageType === 'location') {
+    displayMessage = '📍 Vị trí';
+  }
+
+  const isGroup = type === 'group';
 
   return (
     <TouchableOpacity
@@ -25,12 +38,19 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
       activeOpacity={0.7}
       onPress={onPress}
     >
-      <Avatar name={peerName} size={50} />
+      <View style={styles.avatarWrapper}>
+        <Avatar name={name} avatarUrl={avatarUrl} size={50} />
+        {isGroup && (
+          <View style={styles.groupBadge}>
+            <Text style={styles.groupBadgeText}>👥</Text>
+          </View>
+        )}
+      </View>
 
       <View style={styles.contentContainer}>
         <View style={styles.topRow}>
           <Text style={styles.nameText} numberOfLines={1}>
-            {peerName}
+            {name}
           </Text>
           <Text
             style={[
@@ -38,7 +58,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
               unread > 0 && styles.unreadTimeText,
             ]}
           >
-            {formatConversationTime(lastTime)}
+            {formatConversationTime(updatedAt)}
           </Text>
         </View>
 
@@ -75,6 +95,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 0.5,
     borderBottomColor: '#F1F5F9',
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  groupBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#0284C7',
+    borderRadius: 9,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  groupBadgeText: {
+    fontSize: 9,
   },
   contentContainer: {
     flex: 1,
@@ -131,4 +170,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
